@@ -3,7 +3,7 @@
 import MagicBackground from "@/components/effects/magic-background";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Share, Share2Icon, FileText, Eye } from "lucide-react";
 
@@ -12,6 +12,13 @@ export default function DashboardPage() {
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // upload state
+    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadError, setUploadError] = useState("");
+    const [uploadSuccess, setUploadSuccess] = useState("");
 
     const [activeTab, setActiveTab] = useState("documents");
     const [selectedAccessDocId, setSelectedAccessDocId] = useState("");
@@ -95,6 +102,46 @@ export default function DashboardPage() {
             setShareLoading(false);
         }
     };
+
+    const handleClickUpload = () => {
+        setUploadError("");
+        setUploadSuccess("");
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelected = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !user?.token) return;
+        setUploadError("");
+        setUploadSuccess("");
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        try {
+            setUploading(true);
+            setUploadProgress(0);
+            await api.post("/api/documents/upload", formData, {
+                headers: { Authorization: `Bearer ${user.token}` },
+                onUploadProgress: (evt) => {
+                    if (!evt.total) return;
+                    const pct = Math.round((evt.loaded * 100) / evt.total);
+                    setUploadProgress(pct);
+                },
+            });
+            setUploadSuccess("Uploaded successfully");
+            // refresh list
+            await fetchDocumentsForUser(user);
+        } catch (err) {
+            console.error("Upload failed:", err);
+            setUploadError(err?.response?.data?.message || err?.message || "Upload failed");
+        } finally {
+            setUploading(false);
+            setTimeout(() => {
+                setUploadSuccess("");
+                setUploadProgress(0);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }, 1500);
+        }
+    };
     useEffect(() => {
         if (!user?.token) return;
         if (activeTab === "access" && selectedAccessDocId && !accessLoading) {
@@ -166,6 +213,23 @@ export default function DashboardPage() {
                         <div className="mt-6">
                             {activeTab === "documents" && (
                                 <div>
+                                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <div className="text-sm text-muted-foreground">
+                                            Manage your files and create shareable, trackable links.
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
+                                            <Button size="sm" onClick={handleClickUpload} disabled={!user?.token || uploading}>
+                                                {uploading ? `Uploading… ${uploadProgress || 0}%` : "Upload document"}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {uploadError && (
+                                        <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{uploadError}</div>
+                                    )}
+                                    {uploadSuccess && (
+                                        <div className="mb-3 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">{uploadSuccess}</div>
+                                    )}
                                     {loading && (
                                         <p className="text-sm text-muted-foreground">Loading documents…</p>
                                     )}
@@ -236,16 +300,17 @@ export default function DashboardPage() {
                                         ) : accessLogs.length === 0 ? (
                                             <p className="text-sm text-muted-foreground">No access logs found for the selected document.</p>
                                         ) : (
-                                            <div className="mt-2 divide-y rounded-md border bg-card/80">
+                                            <div className="mt-2 rounded-md border bg-card/80">
                                                 {accessLogs.map((log, i) => (
                                                     <div key={log.id || i} className="p-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="font-medium flex items-center gap-2"><Eye size={16} /> {log.documentName || log.fileName || "Document"}</div>
+                                                        <div className="flex items-center ">
+                                                            <div className="font-medium flex items-center gap-2"><Eye size={16} /> {"Viewed on  "}</div>
                                                             <div className="text-xs text-muted-foreground">{log.accessedAt ? new Date(log.accessedAt).toLocaleString() : (log.createdAt ? new Date(log.createdAt).toLocaleString() : "")}</div>
                                                         </div>
                                                         <div className="mt-1 text-xs text-muted-foreground">
-                                                            {log.ipAddress && <span>IP: {log.ipAddress}</span>}
-                                                            {log.userAgent && <span className="ml-3">Agent: {log.userAgent}</span>}
+                                                            <span className="font-bold">{"Viewer IP"}</span> <span>{log.viewerIp}</span>
+                                                            <br />
+                                                            {log.userAgent && <span>Agent: {log.userAgent}</span>}
                                                         </div>
                                                     </div>
                                                 ))}
