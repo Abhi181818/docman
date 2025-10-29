@@ -127,7 +127,11 @@ export default function DashboardPage() {
             setUploading(true);
             setUploadProgress(0);
             await api.post("/api/documents/upload", formData, {
-                headers: { Authorization: `Bearer ${user.token}` },
+                headers: {
+                    Authorization: `Bearer ${user.token}`,
+                    "Content-Type": "multipart/form-data",
+                },
+                maxBodyLength: Infinity,
                 onUploadProgress: (evt) => {
                     if (!evt.total) return;
                     const pct = Math.round((evt.loaded * 100) / evt.total);
