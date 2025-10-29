@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Share, Share2Icon, FileText, Eye } from "lucide-react";
+import jsPDF from "jspdf";
+import { PDFDocument } from "pdf-lib";
 
 export default function DashboardPage() {
     const [user, setUser] = useState(null);
@@ -31,6 +33,7 @@ export default function DashboardPage() {
     const [shareLogs, setShareLogs] = useState([]);
     const [shareLoading, setShareLoading] = useState(false);
     const [shareError, setShareError] = useState("");
+    const [ascDesc, setAscDesc] = useState("asc");
 
     useEffect(() => {
         try {
@@ -55,8 +58,12 @@ export default function DashboardPage() {
             const response = await api.get(`/api/document-access-logs/document/${encodeURIComponent(documentId)}`, {
                 headers: { Authorization: `Bearer ${u.token}` },
             });
-            const data = response?.data;
-            const logs = Array.isArray(data) ? data : (data?.logs || data?.data || []);
+            const data = response?.data
+            const logs = Array.isArray(data) ? data : []
+
+            // logs.sort((a, b) => new Date(b.accessedAt) - new Date(a.accessedAt));
+
+            // console.log("Fetched access logs:", data);
             setAccessLogs(logs);
         } catch (err) {
             console.error("Failed to fetch access logs:", err);
@@ -128,7 +135,7 @@ export default function DashboardPage() {
                 },
             });
             setUploadSuccess("Uploaded successfully");
-            // refresh list
+            // refresh
             await fetchDocumentsForUser(user);
         } catch (err) {
             console.error("Upload failed:", err);
@@ -161,9 +168,15 @@ export default function DashboardPage() {
                 Authorization: `Bearer ${user.token}`,
                 'Content-Type': 'multipart/form-data',
             },
-        }).then(response => {
-            const blob = new Blob([response.data], { type: response.data.type });
+            responseType: 'blob',
+        }).then(async response => {
+            const blob = new Blob([response.data], { type: response.headers["content-type"] });
+            console.log("blob", blob);
+            console.log("response", response);
+            console.log("type", response.headers["content-type"])
             const url = window.URL.createObjectURL(blob);
+            console.log("URL:", url);
+            console.log("name:", doc.originalFileName);
             const link = document.createElement('a');
             link.href = url;
             link.download = doc.originalFileName || 'document';
@@ -171,6 +184,53 @@ export default function DashboardPage() {
             link.click();
             link.remove();
         });
+
+        // api.get(`/api/documents/getFile/${encodeURIComponent(doc.fileName)}`, {
+        //     headers: {
+        //         Authorization: `Bearer ${user.token}`,
+        //     },
+        //     responseType: 'blob',
+        // }).then(async response => {
+        //     const blob = new Blob([response.data], { type: "application/pdf" });
+        //     // embedding in pdf
+        //     // console.log("blob", blob.arrayBuffer());
+        //     const bytes = await blob.arrayBuffer();
+        //     console.log("bytes", bytes);
+        //     const pdfDoc = await new PDFDocument.load(bytes);
+        //     // pdfDoc add transparent image 
+        //     const url = "https://maper.info/1jK205.jpg";
+
+        //     // const pages = pdfDoc.getPages();
+        //     // console.log("pages", pages)
+        //     const pages = pdfDoc.getPages();
+
+        //     const pngImageBytes = await fetch(url).then(res => res.arrayBuffer());
+        //     const pngImage = await pdfDoc.embedPng(pngImageBytes);
+        //     const pngDims = pngImage.scale(0.1);
+        //     //
+        //     pages.forEach((page) => {
+        //         const { width, height } = page.getSize();
+        //         page.drawImage(pngImage, {
+        //             x: width - pngDims.width - 10,
+        //             y: 10,
+        //             width: pngDims.width,
+        //             height: pngDims.height,
+        //             opacity: 0.1,
+        //         })
+        //     });
+
+        //     pdfDoc.save().then((modifiedPdfBytes) => {
+        //         const modifiedBlob = new Blob([modifiedPdfBytes], { type: "application/pdf" });
+        //         const url = window.URL.createObjectURL(modifiedBlob);
+        //         const link = document.createElement('a');
+        //         link.href = url;
+        //         link.download = doc.originalFileName || 'document.pdf';
+        //         document.body.appendChild(link);
+        //         link.click();
+        //         link.remove();
+        //     });
+
+        // })
     }
 
     return (
@@ -287,6 +347,7 @@ export default function DashboardPage() {
                                                 </option>
                                             ))}
                                         </select>
+                                        <button onClick={() => handleSortLogs()}></button>
                                     </div>
                                     {accessLoading && (
                                         <p className="text-sm text-muted-foreground">Loading access logs…</p>
