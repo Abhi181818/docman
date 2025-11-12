@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { Share, Share2Icon, FileText, Eye } from "lucide-react";
+import { Share, Share2Icon, FileText, Eye, TrashIcon, DownloadIcon, File } from "lucide-react";
 import jsPDF from "jspdf";
 import { PDFDocument } from "pdf-lib";
 
@@ -139,7 +139,6 @@ export default function DashboardPage() {
                 },
             });
             setUploadSuccess("Uploaded successfully");
-            // refresh
             await fetchDocumentsForUser(user);
         } catch (err) {
             console.error("Upload failed:", err);
@@ -307,15 +306,27 @@ export default function DashboardPage() {
                                             ) : (
                                                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                                     {documents.map((doc) => (
-                                                        <div key={doc.id} className="rounded-md border bg-card/80 p-4 shadow-sm backdrop-blur">
-                                                            <h2 className="font-medium line-clamp-1">{doc.originalFileName || doc.fileName || "Untitled"}</h2>
+                                                        <div key={doc.id} className="rounded-md border bg-card/80 p-4 shadow-sm backdrop-blur hover:shadow-lg transition-shadow">
+                                                            <h2 className="font-medium line-clamp-1">{doc.originalFileName || "Untitled"}</h2>
+
+                                                            {doc.fileName.endsWith(".pdf") ?
+                                                                (<div className="mt-2 text-sm text-muted-foreground flex items-center gap-1">
+                                                                    <span>PDF Document</span>
+                                                                </div>)
+                                                                : (
+                                                                    <></>
+                                                                )
+                                                            }
                                                             <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                                                                 {doc.size && <div>Size: {doc.size}</div>}
                                                                 {doc.updatedAt && <div>Updated: {new Date(doc.updatedAt).toLocaleString()}</div>}
                                                             </div>
                                                             <div className="mt-3 flex items-center gap-2">
-                                                                <Button size="sm" variant="secondary" onClick={() => handleDownloadSharableDocument(doc)} className="inline-flex items-center gap-1">
-                                                                    <Share2Icon size={16} /> Get Sharable
+                                                                <Button size="sm" variant="secondary" onClick={() => handleDownloadSharableDocument(doc)} className="inline-flex items-center gap-1 hover:bg-primary/10 hover:text-primary hover:border-primary">
+                                                                    <DownloadIcon size={16} /> Get Sharable
+                                                                </Button>
+                                                                <Button size="sm" variant="inline" onClick={() => handleDownloadSharableDocument(doc)} className="inline-flex items-center gap-1 hover:bg-red-100 hover:text-red-600 hover:border-red-600">
+                                                                    <TrashIcon size={16} />
                                                                 </Button>
                                                             </div>
                                                         </div>
